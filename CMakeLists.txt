@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.17)
-project(Vulkan_Test)
+project(Vulkan-course)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(Vulkan_Test main.cpp)
+file(GLOB_RECURSE HEADER_FILES source/*.hpp)
+file(GLOB_RECURSE SOURCE_FILES source/*.cpp)
+
+add_executable(${PROJECT_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 
 # Vulkan
 add_subdirectory(thirdparty/vulkan/source/Vulkan-Headers)
