@@ -25,4 +25,5 @@ bool Window::isOpen() {
 void Window::clean() {
     spdlog::info("[GLFW] Clean window");
     glfwDestroyWindow(window_);
+    glfwTerminate();
 }

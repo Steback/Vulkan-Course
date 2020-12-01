@@ -9,7 +9,10 @@ file(GLOB_RECURSE SOURCE_FILES source/*.cpp)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 
 # Vulkan
+set(SPIRV_HEADERS_ENABLE_EXAMPLES OFF)
 add_subdirectory(thirdparty/vulkan/source/Vulkan-Headers)
+add_subdirectory(thirdparty/vulkan/source/glslang)
+add_subdirectory(thirdparty/vulkan/source/Vulkan-ValidationLayers)
 
 # GLFW
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)

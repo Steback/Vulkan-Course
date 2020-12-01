@@ -6,11 +6,13 @@
 #include <stdexcept>
 #include <vector>
 
-#define GLFW_INCLUDE_VULKAN
+#include "vulkan//vulkan.h"
 #include "GLFW/glfw3.h"
 
 #include "Window.hpp"
 
+
+class ValidationLayers;
 
 struct QueueFamilyIndices;
 
@@ -45,6 +47,7 @@ class VulkanRenderer {
 
     private:
         std::unique_ptr<Window>& window_;
+        std::unique_ptr<ValidationLayers> validationLayers;
 
         // Vulkan components
         VkInstance instance_{};

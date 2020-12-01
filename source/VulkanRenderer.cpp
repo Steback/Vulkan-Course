@@ -2,6 +2,7 @@
 
 #include "VulkanRenderer.hpp"
 #include "Utilities.hpp"
+#include "ValidationLayers.hpp"
 
 
 VulkanRenderer::VulkanRenderer(std::unique_ptr<Window> &window) : window_(window) {  }
@@ -24,11 +25,22 @@ int VulkanRenderer::init() {
 
 void VulkanRenderer::clean() {
     spdlog::info("[Vulkan-Renderer] Destroy Device and Instance");
+    validationLayers->clean(instance_);
     vkDestroyDevice(device_.logicalDevice, nullptr);
     vkDestroyInstance(instance_, nullptr);
 }
 
 void VulkanRenderer::createInstance() {
+    if (enableValidationLayers) {
+        validationLayers = std::make_unique<ValidationLayers>(std::vector<const char*>{
+                "VK_LAYER_KHRONOS_validation"
+        });
+
+        if (!validationLayers->checkValidationLayerSupport()) {
+            throw std::runtime_error("validation layers requested, but not available!");
+        }
+    }
+
     // Information about the application itself
     // Most data here doesn't affect the program and is for development convenience
     VkApplicationInfo appInfo{};
@@ -55,10 +67,10 @@ void VulkanRenderer::createInstance() {
     glfwExtensions = glfwGetRequiredInstanceExtensions(&extensionsCount);
 
     // Add GLFW extensions to list fo extensions
-    instanceExtensions.reserve(extensionsCount);
+    instanceExtensions = std::vector<const char*>(glfwExtensions, glfwExtensions + extensionsCount);
 
-    for (size_t i = 0; i < extensionsCount; ++i) {
-        instanceExtensions.push_back(glfwExtensions[i]);
+    if (enableValidationLayers) {
+        instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
     // Check Instance extensions supported
@@ -69,9 +81,19 @@ void VulkanRenderer::createInstance() {
     createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
     createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-    // TODO: Set up Validation Layers that instance will use
-    createInfo.enabledLayerCount = 0;
-    createInfo.ppEnabledLayerNames = nullptr;
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+
+    if (enableValidationLayers) {
+        createInfo.enabledLayerCount = validationLayers->getValidationLayersCount();
+        createInfo.ppEnabledLayerNames = validationLayers->getValidationLayers();
+
+        validationLayers->populateDebugMessengerCreateInfo(debugCreateInfo);
+
+        createInfo.pNext = &debugCreateInfo;
+    } else {
+        createInfo.enabledLayerCount = 0;
+        createInfo.pNext = nullptr;
+    }
 
     spdlog::info("[Vulkan-Renderer] Create Instance");
 
@@ -80,6 +102,10 @@ void VulkanRenderer::createInstance() {
 
     if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to create Instance");
+    }
+
+    if (enableValidationLayers) {
+        validationLayers->init(instance_);
     }
 }
 
@@ -129,7 +155,7 @@ void VulkanRenderer::getPhysicalDevice() {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance_, &deviceCount, nullptr);
 
-    // If no devices are available, then none support vulkan
+        // If no devices are available, then none support vulkan
     if (deviceCount == 0) {
         throw std::runtime_error("Can't find GPU tha support instance");
     }
