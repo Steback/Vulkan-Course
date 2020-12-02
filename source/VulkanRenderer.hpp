@@ -17,7 +17,7 @@ class ValidationLayers;
 struct QueueFamilyIndices;
 
 struct Device {
-    VkPhysicalDevice physicalDevice;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice logicalDevice;
 };
 

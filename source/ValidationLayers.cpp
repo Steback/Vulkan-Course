@@ -15,6 +15,7 @@ void ValidationLayers::init(VkInstance& instance) {
     VkDebugUtilsMessengerCreateInfoEXT createInfo;
     populateDebugMessengerCreateInfo(createInfo);
 
+    // Get custom debug messages form the Vulkan Validation Layers
     if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger_) != VK_SUCCESS) {
         throw std::runtime_error("failed to set up debug messenger!");
     }

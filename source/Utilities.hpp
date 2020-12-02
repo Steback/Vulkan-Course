@@ -4,13 +4,12 @@
 
 // Indices (locations) of Queue Families (if they exists at all)
 struct QueueFamilyIndices {
-    int graphicalFamily = -1; // Location of Graphics Queue Family
+    std::optional<uint32_t> graphicsFamily; // Location of Graphics Queue Family
 
-    // Check if queue families are valid
     [[nodiscard]] bool isValid() const {
-        return graphicalFamily >= 0;
+        return graphicsFamily.has_value();
     }
 };
 
 
-#endif //VULKAN_COURSE_UTILITIES_HPP
+#endif

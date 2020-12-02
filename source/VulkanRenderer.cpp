@@ -87,6 +87,7 @@ void VulkanRenderer::createInstance() {
         createInfo.enabledLayerCount = validationLayers->getValidationLayersCount();
         createInfo.ppEnabledLayerNames = validationLayers->getValidationLayers();
 
+        // Get errors messages about create and destroy Vulkan Objects
         validationLayers->populateDebugMessengerCreateInfo(debugCreateInfo);
 
         createInfo.pNext = &debugCreateInfo;
@@ -118,7 +119,7 @@ void VulkanRenderer::createLogicalDevice() {
     // Queue the logical device needs to create and info to do so (Only 1 for now, will add more later)
     VkDeviceQueueCreateInfo queueCreateInfo;
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = indices.graphicalFamily;  // The index of the family to create a queue form
+    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();  // The index of the family to create a queue form
     queueCreateInfo.queueCount = 1; // Numbers of queues to create
     float priority = 1.0f;
     queueCreateInfo.pQueuePriorities = &priority; // Vulkan needs to know how to handle multiple queue, so decide priority (1 = highest priority)
@@ -145,7 +146,7 @@ void VulkanRenderer::createLogicalDevice() {
 
     // Queues are created at the same time as the device so we want handle to queues
     // From given logical device, of given Queue Family, of given Queue Index (0 since only one queue), place reference in given vkQueue
-    vkGetDeviceQueue(device_.logicalDevice, indices.graphicalFamily, 0, &graphicsQueues);
+    vkGetDeviceQueue(device_.logicalDevice, indices.graphicsFamily.value(), 0, &graphicsQueues);
 }
 
 void VulkanRenderer::getPhysicalDevice() {
@@ -155,9 +156,9 @@ void VulkanRenderer::getPhysicalDevice() {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance_, &deviceCount, nullptr);
 
-        // If no devices are available, then none support vulkan
+    // If no devices are available, then none support vulkan
     if (deviceCount == 0) {
-        throw std::runtime_error("Can't find GPU tha support instance");
+        throw std::runtime_error("Can't find GPU that support instance");
     }
 
     // Get list of physical devices
@@ -168,6 +169,10 @@ void VulkanRenderer::getPhysicalDevice() {
         if (checkDeviceSuitable(device)) {
             device_.physicalDevice = device; break;
         }
+    }
+
+    if (device_.physicalDevice == VK_NULL_HANDLE) {
+        throw std::runtime_error("Failed to find a suitable GPU!");
     }
 }
 
@@ -212,7 +217,7 @@ bool VulkanRenderer::checkDeviceSuitable(VkPhysicalDevice device) {
 }
 
 QueueFamilyIndices VulkanRenderer::getQueueFamilies(VkPhysicalDevice device) {
-    QueueFamilyIndices indices;
+    QueueFamilyIndices indices{};
 
     // Get all Queue Family Property info for the given device
     uint32_t queueFamilyCount = 0;
@@ -229,11 +234,11 @@ QueueFamilyIndices VulkanRenderer::getQueueFamilies(VkPhysicalDevice device) {
         // Queue can be multiply types defined through bitfield. Need to bitwise AND with VK_QUEUE_*_BIT to check if
         // has required type
         if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            indices.graphicalFamily = i; // If finally queue is valid, then get index
-        }
+            indices.graphicsFamily = i; // If finally queue is valid, then get index
 
-        if (indices.isValid()) {
-            break;
+            if (indices.isValid()){
+                break;
+            }
         }
 
         i++;
