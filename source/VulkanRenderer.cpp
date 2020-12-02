@@ -117,7 +117,7 @@ void VulkanRenderer::createLogicalDevice() {
     QueueFamilyIndices indices = getQueueFamilies(device_.physicalDevice);
 
     // Queue the logical device needs to create and info to do so (Only 1 for now, will add more later)
-    VkDeviceQueueCreateInfo queueCreateInfo;
+    VkDeviceQueueCreateInfo queueCreateInfo{};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();  // The index of the family to create a queue form
     queueCreateInfo.queueCount = 1; // Numbers of queues to create
@@ -146,7 +146,7 @@ void VulkanRenderer::createLogicalDevice() {
 
     // Queues are created at the same time as the device so we want handle to queues
     // From given logical device, of given Queue Family, of given Queue Index (0 since only one queue), place reference in given vkQueue
-    vkGetDeviceQueue(device_.logicalDevice, indices.graphicsFamily.value(), 0, &graphicsQueues);
+    vkGetDeviceQueue(device_.logicalDevice, indices.graphicsFamily.value(), 0, &graphicsQueues_);
 }
 
 void VulkanRenderer::getPhysicalDevice() {

@@ -52,7 +52,7 @@ class VulkanRenderer {
         // Vulkan components
         VkInstance instance_{};
         Device device_{};
-        VkQueue graphicsQueues{};
+        VkQueue graphicsQueues_{};
 };
 
 
