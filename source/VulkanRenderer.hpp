@@ -15,6 +15,7 @@
 class ValidationLayers;
 
 struct QueueFamilyIndices;
+struct SwapChainDetails;
 
 struct Device {
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -33,17 +34,20 @@ class VulkanRenderer {
         // - Create functions
         void createInstance();
         void createLogicalDevice();
+        void createSurface();
 
         // - Get functions
         void getPhysicalDevice();
 
         // - Support functions
         // -- Checker functions
-        static bool checkInstanceSupport(std::vector<const char*>* extensions);
-        static bool checkDeviceSuitable(VkPhysicalDevice device);
+        bool checkInstanceSupport(std::vector<const char*>* extensions);
+        bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+        bool checkDeviceSuitable(VkPhysicalDevice device);
 
         // -- Getter functions
-        static QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device);
+        QueueFamilyIndices getQueueFamilies(VkPhysicalDevice device);
+        SwapChainDetails getSwapChainDetails(VkPhysicalDevice device);
 
     private:
         std::unique_ptr<Window>& window_;
@@ -53,6 +57,8 @@ class VulkanRenderer {
         VkInstance instance_{};
         Device device_{};
         VkQueue graphicsQueues_{};
+        VkQueue presentationQueue_{};
+        VkSurfaceKHR surface_{};
 };
 
 

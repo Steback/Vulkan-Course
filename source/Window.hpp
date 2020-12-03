@@ -7,7 +7,11 @@
 #include "GLFW/glfw3.h"
 
 
+class VulkanRenderer;
+
 class Window {
+    friend VulkanRenderer;
+
     public:
         explicit Window(const std::string& name = "Vulkan course", int width = 800, int height = 600);
         ~Window();
