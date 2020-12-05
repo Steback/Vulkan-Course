@@ -16,6 +16,7 @@ class ValidationLayers;
 
 struct QueueFamilyIndices;
 struct SwapChainDetails;
+struct SwapChainImage;
 
 struct Device {
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -55,17 +56,26 @@ class VulkanRenderer {
         VkPresentModeKHR chooseBestPresentationMode(const std::vector<VkPresentModeKHR>& presentationModes);
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
 
+        // -- Create functions
+        VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+
     private:
         std::unique_ptr<Window>& window_;
         std::unique_ptr<ValidationLayers> validationLayers;
 
         // Vulkan components
+        // - Main
         VkInstance instance_{};
         Device device_{};
         VkQueue graphicsQueues_{};
         VkQueue presentationQueue_{};
         VkSurfaceKHR surface_{};
         VkSwapchainKHR swapChain_{};
+        std::vector<SwapChainImage> swapChainImages_;
+
+        // - Utility
+        VkFormat swapChainImageFormat_{};
+        VkExtent2D swapChainExtent_{};
 };
 
 
