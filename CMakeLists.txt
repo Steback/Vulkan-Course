@@ -28,3 +28,12 @@ add_library(glm::glm ALIAS glm)
 add_subdirectory(thirdparty/spdlog)
 
 target_link_libraries(${PROJECT_NAME} glfw glm vulkan spdlog)
+
+### COMPILE SHADERS ###
+set(GLSL_VALIDATOR ${PROJECT_SOURCE_DIR}/thirdparty/vulkan/x86_64/bin/glslangValidator)
+file(GLOB_RECURSE shaders_source shaders/*.vert shaders/*.frag)
+
+foreach(shader ${shaders_source})
+    execute_process(COMMAND ${GLSL_VALIDATOR} -V ${shader}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/shaders/)
+endforeach()
