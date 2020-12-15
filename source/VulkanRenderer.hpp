@@ -38,6 +38,7 @@ class VulkanRenderer {
         void createSurface();
         void createSwapChain();
         void createGraphicsPipeline();
+        void createRenderPass();
 
         // - Get functions
         void getPhysicalDevice();
@@ -74,6 +75,11 @@ class VulkanRenderer {
         VkSurfaceKHR surface_{};
         VkSwapchainKHR swapChain_{};
         std::vector<SwapChainImage> swapChainImages_;
+
+        // - Pipeline
+        VkPipeline graphicsPipeline_{};
+        VkPipelineLayout pipelineLayout{};
+        VkRenderPass renderPass_{};
 
         // - Utility
         VkFormat swapChainImageFormat_{};
