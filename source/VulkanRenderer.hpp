@@ -39,6 +39,12 @@ class VulkanRenderer {
         void createSwapChain();
         void createGraphicsPipeline();
         void createRenderPass();
+        void createFramebuffers();
+        void createCommandPool();
+        void createCommandBuffers();
+
+        // - Record Functions
+        void recordCommands();
 
         // - Get functions
         void getPhysicalDevice();
@@ -75,11 +81,16 @@ class VulkanRenderer {
         VkSurfaceKHR surface_{};
         VkSwapchainKHR swapChain_{};
         std::vector<SwapChainImage> swapChainImages_;
+        std::vector<VkFramebuffer> swapChainFramebuffers_;
+        std::vector<VkCommandBuffer> commandBuffers_;
 
         // - Pipeline
         VkPipeline graphicsPipeline_{};
         VkPipelineLayout pipelineLayout{};
         VkRenderPass renderPass_{};
+
+        // Pools
+        VkCommandPool graphicsCommandPool;
 
         // - Utility
         VkFormat swapChainImageFormat_{};
