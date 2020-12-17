@@ -14,6 +14,7 @@ int main() {
 
     while (window->isOpen()) {
         glfwPollEvents();
+        renderer->draw();
     }
 
     renderer->clean();

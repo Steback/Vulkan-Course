@@ -29,6 +29,7 @@ class VulkanRenderer {
         ~VulkanRenderer();
         int init();
         void clean();
+        void draw();
 
     private:
         // Vulkan function
@@ -42,6 +43,7 @@ class VulkanRenderer {
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
+        void createSynchronisation();
 
         // - Record Functions
         void recordCommands();
@@ -69,6 +71,8 @@ class VulkanRenderer {
         VkShaderModule createShaderModule(const std::vector<char>& code);
 
     private:
+        int currentFrame{0};
+
         std::unique_ptr<Window>& window_;
         std::unique_ptr<ValidationLayers> validationLayers;
 
@@ -95,6 +99,11 @@ class VulkanRenderer {
         // - Utility
         VkFormat swapChainImageFormat_{};
         VkExtent2D swapChainExtent_{};
+
+        // - Synchronisation
+        std::vector<VkSemaphore> imageAvailable;
+        std::vector<VkSemaphore> renderFinished;
+        std::vector<VkFence> drawFences;
 };
 
 
