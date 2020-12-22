@@ -10,9 +10,11 @@
 #include "GLFW/glfw3.h"
 
 #include "Window.hpp"
+#include "Mesh.hpp"
 
 
 class ValidationLayers;
+class Mesh;
 
 struct QueueFamilyIndices;
 struct SwapChainDetails;
@@ -76,6 +78,9 @@ class VulkanRenderer {
         std::unique_ptr<Window>& window_;
         std::unique_ptr<ValidationLayers> validationLayers;
 
+        // Scene objects
+        std::unique_ptr<Mesh> mesh;
+
         // Vulkan components
         // - Main
         VkInstance instance_{};
@@ -94,7 +99,7 @@ class VulkanRenderer {
         VkRenderPass renderPass_{};
 
         // Pools
-        VkCommandPool graphicsCommandPool;
+        VkCommandPool graphicsCommandPool{};
 
         // - Utility
         VkFormat swapChainImageFormat_{};
