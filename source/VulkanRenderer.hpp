@@ -79,7 +79,7 @@ class VulkanRenderer {
         std::unique_ptr<ValidationLayers> validationLayers;
 
         // Scene objects
-        std::unique_ptr<Mesh> mesh;
+        std::vector<Mesh> meshList;
 
         // Vulkan components
         // - Main
