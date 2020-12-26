@@ -19,6 +19,7 @@ class Mesh;
 struct QueueFamilyIndices;
 struct SwapChainDetails;
 struct SwapChainImage;
+struct MVP;
 
 struct Device {
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -42,10 +43,16 @@ class VulkanRenderer {
         void createSwapChain();
         void createGraphicsPipeline();
         void createRenderPass();
+        void createDescriptorSetLayout();
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
         void createSynchronisation();
+        void createUniformBuffers();
+        void createDescriptorPool();
+        void createDescriptorSets();
+
+        void updateUniformBuffer(uint32_t imageIndex);
 
         // - Record Functions
         void recordCommands();
@@ -81,6 +88,9 @@ class VulkanRenderer {
         // Scene objects
         std::vector<Mesh> meshList;
 
+        // Scene Settings
+        MVP mvp{};
+
         // Vulkan components
         // - Main
         VkInstance instance_{};
@@ -92,6 +102,13 @@ class VulkanRenderer {
         std::vector<SwapChainImage> swapChainImages_;
         std::vector<VkFramebuffer> swapChainFramebuffers_;
         std::vector<VkCommandBuffer> commandBuffers_;
+
+        // - Descriptors
+        VkDescriptorSetLayout descriptorSetLayout{};
+        VkDescriptorPool descriptorPool{};
+        std::vector<VkBuffer> uniformBuffer;
+        std::vector<VkDeviceMemory> uniformBufferMemory;
+        std::vector<VkDescriptorSet> descriptorsSets;
 
         // - Pipeline
         VkPipeline graphicsPipeline_{};

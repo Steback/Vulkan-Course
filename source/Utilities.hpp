@@ -178,4 +178,10 @@ static void copyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool tra
     vkFreeCommandBuffers(device, transferCommandPool, 1, &transferCommandBuffer);
 }
 
+struct MVP {
+    glm::mat4 projection;
+    glm::mat4 view;
+    glm::mat4 model;
+};
+
 #endif
