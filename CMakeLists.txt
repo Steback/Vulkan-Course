@@ -8,12 +8,6 @@ file(GLOB_RECURSE SOURCE_FILES source/*.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 
-# Vulkan
-set(SPIRV_HEADERS_ENABLE_EXAMPLES OFF)
-add_subdirectory(thirdparty/vulkan/source/Vulkan-Headers)
-add_subdirectory(thirdparty/vulkan/source/glslang)
-add_subdirectory(thirdparty/vulkan/source/Vulkan-ValidationLayers)
-
 # GLFW
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -30,7 +24,7 @@ add_subdirectory(thirdparty/spdlog)
 target_link_libraries(${PROJECT_NAME} glfw glm vulkan spdlog)
 
 ### COMPILE SHADERS ###
-set(GLSL_VALIDATOR ${PROJECT_SOURCE_DIR}/thirdparty/vulkan/x86_64/bin/glslangValidator)
+set(GLSL_VALIDATOR $ENV{VULKAN_SDK}/bin/glslangValidator)
 file(GLOB_RECURSE shaders_source shaders/*.vert shaders/*.frag)
 
 foreach(shader ${shaders_source})
