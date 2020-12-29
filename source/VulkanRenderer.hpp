@@ -31,6 +31,7 @@ class VulkanRenderer {
         explicit VulkanRenderer(std::unique_ptr<Window>& window);
         ~VulkanRenderer();
         int init();
+        void updateModel(glm::mat4 newModel);
         void clean();
         void draw();
 

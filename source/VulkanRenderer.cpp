@@ -80,6 +80,10 @@ int VulkanRenderer::init() {
     return 0;
 }
 
+void VulkanRenderer::updateModel(glm::mat4 newModel) {
+    mvp.model = newModel;
+}
+
 void VulkanRenderer::draw() {
      // -- GET NEXT IMAGE --
     // Wait for given fence to signal(open) from last draw before continuing
