@@ -23,7 +23,7 @@ struct MVP;
 
 struct Device {
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VkDevice logicalDevice;
+    VkDevice logicalDevice{};
 };
 
 class VulkanRenderer {
@@ -108,7 +108,7 @@ class VulkanRenderer {
         VkDescriptorPool descriptorPool{};
         std::vector<VkBuffer> uniformBuffer;
         std::vector<VkDeviceMemory> uniformBufferMemory;
-        std::vector<VkDescriptorSet> descriptorsSets;
+        std::vector<VkDescriptorSet> descriptorSets;
 
         // - Pipeline
         VkPipeline graphicsPipeline_{};
