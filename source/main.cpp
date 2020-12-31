@@ -24,13 +24,6 @@ int main() {
         deltaTime = now - lastTime;
         lastTime = now;
 
-        angle += 10.0f * deltaTime;
-
-        if (angle > 360) angle -= 360.0f;
-
-        renderer->updateModel(glm::rotate(glm::mat4(1.0f), glm::radians(angle),
-                                          glm::vec3(0.0f, 0.0f, 1.0f)));
-
         renderer->draw();
     }
 

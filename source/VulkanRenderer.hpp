@@ -31,7 +31,6 @@ class VulkanRenderer {
         explicit VulkanRenderer(std::unique_ptr<Window>& window);
         ~VulkanRenderer();
         int init();
-        void updateModel(glm::mat4 newModel);
         void clean();
         void draw();
 
@@ -53,13 +52,16 @@ class VulkanRenderer {
         void createDescriptorPool();
         void createDescriptorSets();
 
-        void updateUniformBuffer(uint32_t imageIndex);
+        void updateUniformBuffers(uint32_t imageIndex);
 
         // - Record Functions
         void recordCommands();
 
         // - Get functions
         void getPhysicalDevice();
+
+        // - Allocate functions
+        void allocateDynamicBufferTransferSpace();
 
         // - Support functions
         // -- Checker functions
@@ -90,7 +92,7 @@ class VulkanRenderer {
         std::vector<Mesh> meshList;
 
         // Scene Settings
-        MVP mvp{};
+        UboViewProjection uboViewProjection{};
 
         // Vulkan components
         // - Main
@@ -107,9 +109,14 @@ class VulkanRenderer {
         // - Descriptors
         VkDescriptorSetLayout descriptorSetLayout{};
         VkDescriptorPool descriptorPool{};
-        std::vector<VkBuffer> uniformBuffer;
-        std::vector<VkDeviceMemory> uniformBufferMemory;
+        std::vector<VkBuffer> vpUniformBuffer;
+        std::vector<VkDeviceMemory> vpUniformBufferMemory;
+        std::vector<VkBuffer> modelDUniformBuffer;
+        std::vector<VkDeviceMemory> modelDUniformBufferMemory;
         std::vector<VkDescriptorSet> descriptorSets;
+        VkDeviceSize minUniformBufferOffset_{};
+        size_t modelUniformAlignment{};
+        UboModel* modelTransferSpace{};
 
         // - Pipeline
         VkPipeline graphicsPipeline_{};

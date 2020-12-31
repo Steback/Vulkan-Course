@@ -9,7 +9,8 @@
 #include "vulkan/vulkan.h"
 
 
-const int MAX_FRAME_DRAWS = 2;
+const int MAX_FRAME_DRAWS = 3;
+const int MAX_OBJECTS = 2;
 
 const std::vector<const char *> deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -178,10 +179,9 @@ static void copyBuffer(VkDevice device, VkQueue transferQueue, VkCommandPool tra
     vkFreeCommandBuffers(device, transferCommandPool, 1, &transferCommandBuffer);
 }
 
-struct MVP {
+struct UboViewProjection {
     glm::mat4 projection;
     glm::mat4 view;
-    glm::mat4 model;
 };
 
 #endif

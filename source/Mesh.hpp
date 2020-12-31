@@ -6,9 +6,14 @@
 
 #include "vulkan/vulkan.h"
 #include "GLFW/glfw3.h"
+#include "glm/glm.hpp"
 
 #include "Utilities.hpp"
 
+
+struct UboModel {
+    glm::mat4 model;
+};
 
 class Mesh {
     public:
@@ -21,6 +26,8 @@ class Mesh {
         void clean();
         [[nodiscard]] int getIndexCount() const;
         VkBuffer getIndexBuffer();
+        [[nodiscard]] const UboModel &getUboModel() const;
+        void setUboModel(const UboModel &uboModel);
 
     private:
         void createVertexBuffer(const std::vector<Vertex>& vertices, VkQueue transferQueue,
@@ -29,6 +36,7 @@ class Mesh {
                                VkCommandPool transferCommandPool);
 
     private:
+        UboModel uboModel_{};
         int vertexCount_{};
         VkBuffer vertexbuffer_{};
         VkPhysicalDevice physicalDevice_{};
