@@ -1,10 +1,12 @@
 #include <set>
 #include <algorithm>
 #include <array>
+#include <malloc.h>
 
 #include "spdlog/spdlog.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include "vulkan/vulkan.hpp"
 
 #include "VulkanRenderer.hpp"
 #include "Utilities.hpp"
@@ -164,7 +166,7 @@ void VulkanRenderer::clean() {
         vkFreeMemory(device_.logicalDevice, modelDUniformBufferMemory[i], nullptr);
     }
 
-    for (auto& mesh : meshList) {
+    for (auto & mesh : meshList) {
         mesh.clean();
     }
 
@@ -202,7 +204,7 @@ void VulkanRenderer::createInstance() {
         });
 
         if (!validationLayers->checkValidationLayerSupport()) {
-            throw std::runtime_error("validation layers requested, but not available!");
+            throw std::runtime_error("Validation layers requested, but not available!");
         }
     }
 
@@ -1079,10 +1081,11 @@ void VulkanRenderer::getPhysicalDevice() {
 
 void VulkanRenderer::allocateDynamicBufferTransferSpace() {
     // Calculate alignment of model data
-    modelUniformAlignment = (sizeof(UboModel) + minUniformBufferOffset_ - 1) & ~(minUniformBufferOffset_ - 1);
+    modelUniformAlignment = (sizeof(UboModel) + minUniformBufferOffset_ - 1)
+                            & ~(minUniformBufferOffset_ - 1);
 
     // Create space in memory to hold dynamic buffer that is aligned to our required alignment and holds MAX_OBJECTS
-    modelTransferSpace = (UboModel*)std::aligned_alloc(modelUniformAlignment * MAX_OBJECTS, modelUniformAlignment);
+    modelTransferSpace = (UboModel*)std::aligned_alloc(modelUniformAlignment, modelUniformAlignment * MAX_OBJECTS);
 }
 
 bool VulkanRenderer::checkInstanceSupport(std::vector<const char *> *checkExtensions) {
