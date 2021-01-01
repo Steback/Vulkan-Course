@@ -45,6 +45,7 @@ class VulkanRenderer {
         void createGraphicsPipeline();
         void createRenderPass();
         void createDescriptorSetLayout();
+        void createPushConstantRange();
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
@@ -56,7 +57,7 @@ class VulkanRenderer {
         void updateUniformBuffers(uint32_t imageIndex);
 
         // - Record Functions
-        void recordCommands();
+        void recordCommands(uint32_t currentImage);
 
         // - Get functions
         void getPhysicalDevice();
@@ -115,9 +116,10 @@ class VulkanRenderer {
         std::vector<VkBuffer> modelDUniformBuffer;
         std::vector<VkDeviceMemory> modelDUniformBufferMemory;
         std::vector<VkDescriptorSet> descriptorSets;
-        VkDeviceSize minUniformBufferOffset_{};
-        size_t modelUniformAlignment{};
-        UboModel* modelTransferSpace{};
+//        VkDeviceSize minUniformBufferOffset_{};
+//        size_t modelUniformAlignment{};
+//        UboModel* modelTransferSpace{};
+        VkPushConstantRange pushConstantRange{};
 
         // - Pipeline
         VkPipeline graphicsPipeline_{};

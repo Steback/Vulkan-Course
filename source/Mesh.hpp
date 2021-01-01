@@ -11,7 +11,7 @@
 #include "Utilities.hpp"
 
 
-struct UboModel {
+struct Model {
     glm::mat4 model;
 };
 
@@ -26,8 +26,8 @@ class Mesh {
         void clean();
         [[nodiscard]] int getIndexCount() const;
         VkBuffer getIndexBuffer();
-        [[nodiscard]] const UboModel &getUboModel() const;
-        void setUboModel(const UboModel &uboModel);
+        [[nodiscard]] const Model &getUboModel() const;
+        void setUboModel(const Model &uboModel);
 
     private:
         void createVertexBuffer(const std::vector<Vertex>& vertices, VkQueue transferQueue,
@@ -36,7 +36,7 @@ class Mesh {
                                VkCommandPool transferCommandPool);
 
     private:
-        UboModel uboModel_{};
+        Model model_{};
         int vertexCount_{};
         VkBuffer vertexbuffer_{};
         VkPhysicalDevice physicalDevice_{};

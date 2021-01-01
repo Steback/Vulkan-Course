@@ -10,7 +10,7 @@ Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, const std::vector<V
     createVertexBuffer(vertices, transferQueue, transferCommandPool);
     createIndexBuffer(indices, transferQueue, transferCommandPool);
 
-    uboModel_ = {glm::mat4(1.0f)};
+    model_ = {glm::mat4(1.0f)};
 }
 
 Mesh::~Mesh() = default;
@@ -38,12 +38,12 @@ void Mesh::clean() {
     vkFreeMemory(device_, indexBufferMemory_, nullptr);
 }
 
-const UboModel &Mesh::getUboModel() const {
-    return uboModel_;
+const Model &Mesh::getUboModel() const {
+    return model_;
 }
 
-void Mesh::setUboModel(const UboModel &uboModel) {
-    uboModel_ = uboModel;
+void Mesh::setUboModel(const Model &uboModel) {
+    model_ = uboModel;
 }
 
 void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices, VkQueue transferQueue,
