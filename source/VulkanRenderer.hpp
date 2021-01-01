@@ -46,6 +46,7 @@ class VulkanRenderer {
         void createRenderPass();
         void createDescriptorSetLayout();
         void createPushConstantRange();
+        void createDepthBufferImage();
         void createFramebuffers();
         void createCommandPool();
         void createCommandBuffers();
@@ -79,10 +80,15 @@ class VulkanRenderer {
         VkSurfaceFormatKHR chooseBestSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats);
         VkPresentModeKHR chooseBestPresentationMode(const std::vector<VkPresentModeKHR>& presentationModes);
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& surfaceCapabilities);
+        VkFormat chooseSupportedFormat(const std::vector<VkFormat> &formats, VkImageTiling tiling,
+                                       VkFormatFeatureFlags featureFlags);
 
         // -- Create functions
         VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
         VkShaderModule createShaderModule(const std::vector<char>& code);
+        VkImage createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+                            VkImageUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags,
+                            VkDeviceMemory* imageMemory);
 
     private:
         int currentFrame{0};
@@ -107,6 +113,9 @@ class VulkanRenderer {
         std::vector<SwapChainImage> swapChainImages_;
         std::vector<VkFramebuffer> swapChainFramebuffers_;
         std::vector<VkCommandBuffer> commandBuffers_;
+        VkImage depthBufferImage{};
+        VkDeviceMemory depthBufferImageMemory{};
+        VkImageView depthBufferImageView{};
 
         // - Descriptors
         VkDescriptorSetLayout descriptorSetLayout{};
