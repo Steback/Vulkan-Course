@@ -41,17 +41,17 @@ int VulkanRenderer::init() {
 
         // Vertex Data
         std::vector<Vertex> meshVertices{
-                { { -0.1f, -0.4f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
-                { { -0.1f, 0.4f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
-                { { -0.9f, 0.4f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-                { { -0.9f, -0.4f, 0.0f },{ 1.0f, 1.0f, 1.0f } },
+                { { -0.4f, 0.4f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
+                { { -0.4f, -0.4f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
+                { { 0.4f, -0.4f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+                { { 0.4f, 0.4f, 0.0f },{ 1.0f, 1.0f, 1.0f } },
         };
 
         std::vector<Vertex> meshVertices2 = {
-                { { 0.9f, -0.3f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
-                { { 0.9f, 0.1f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
-                { { 0.1f, 0.3f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-                { { 0.1f, -0.3f, 0.0f },{ 1.0f, 1.0f, 1.0f } },
+                { { -0.25f, 0.6f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
+                { { -0.25f, -0.6f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
+                { { 0.25f, -0.6f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+                { { 0.25f, 0.6f, 0.0f },{ 1.0f, 1.0f, 1.0f } },
         };
 
         // Index Data
@@ -64,12 +64,6 @@ int VulkanRenderer::init() {
                                                      graphicsQueues_, graphicsCommandPool, meshIndices));
         meshList.emplace_back(Mesh(device_.physicalDevice, device_.logicalDevice, meshVertices2,
                                                      graphicsQueues_, graphicsCommandPool, meshIndices));
-
-        glm::mat4 meshModelMatrix = meshList[0].getUboModel().model;
-        meshModelMatrix = glm::rotate(meshModelMatrix, glm::radians(45.0f),
-                                      glm::vec3(0.0f, 0.0f, 1.0f));
-
-        meshList[0].setUboModel({meshModelMatrix});
 
         createCommandBuffers();
         allocateDynamicBufferTransferSpace();
@@ -195,6 +189,12 @@ void VulkanRenderer::clean() {
     vkDestroyDevice(device_.logicalDevice, nullptr);
     validationLayers->clean(instance_);
     vkDestroyInstance(instance_, nullptr);
+}
+
+void VulkanRenderer::updateModel(int modelID, glm::mat4 newModel) {
+    if (modelID >= meshList.size()) return;
+
+    meshList[modelID].setUboModel({newModel});
 }
 
 void VulkanRenderer::createInstance() {

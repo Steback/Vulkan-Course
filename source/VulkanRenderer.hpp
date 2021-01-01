@@ -33,6 +33,7 @@ class VulkanRenderer {
         int init();
         void clean();
         void draw();
+        void updateModel(int modelID, glm::mat4 newModel);
 
     private:
         // Vulkan function
