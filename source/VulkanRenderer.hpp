@@ -8,6 +8,7 @@
 
 #include "vulkan//vulkan.h"
 #include "GLFW/glfw3.h"
+#include <stb_image.h>
 
 #include "Window.hpp"
 #include "Mesh.hpp"
@@ -89,6 +90,10 @@ class VulkanRenderer {
         VkImage createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                             VkImageUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags,
                             VkDeviceMemory* imageMemory);
+        int createTexture(const std::string& fileName);
+
+        // -- Loader Functions
+        stbi_uc* loadTextureFile(const std::string& fileName, int* width, int* height, VkDeviceSize* imageSize);
 
     private:
         int currentFrame{0};
@@ -129,6 +134,10 @@ class VulkanRenderer {
 //        size_t modelUniformAlignment{};
 //        UboModel* modelTransferSpace{};
         VkPushConstantRange pushConstantRange{};
+
+        // - Assets
+        std::vector<VkImage> textureImages;
+        std::vector<VkDeviceMemory> textureImageMemory;
 
         // - Pipeline
         VkPipeline graphicsPipeline_{};
