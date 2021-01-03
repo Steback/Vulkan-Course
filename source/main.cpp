@@ -10,7 +10,7 @@
 
 
 int main() {
-    std::unique_ptr<Window> window = std::make_unique<Window>("Vulkan course", 800, 600);
+    std::unique_ptr<Window> window = std::make_unique<Window>("Vulkan course", 1366, 768);
     std::unique_ptr<VulkanRenderer> renderer = std::make_unique<VulkanRenderer>(window);
 
     if (renderer->init() == EXIT_FAILURE) return EXIT_FAILURE;
@@ -32,10 +32,10 @@ int main() {
         glm::mat4 model1(1.0f);
         glm::mat4 model2(1.0f);
 
-        model1 = glm::translate(model1, glm::vec3(0.0f, 0.0f, -3.5f));
+        model1 = glm::translate(model1, glm::vec3(-1.0f, 0.0f, -1.0f));
         model1 = glm::rotate(model1, glm::radians(angle), glm::vec3(0.0f, 0.0f, 1.0f));
 
-        model2 = glm::translate(model2, glm::vec3(0.0f, 0.0f, -3.0f));
+        model2 = glm::translate(model2, glm::vec3(1.0f, 0.0f, -3.0f));
         model2 = glm::rotate(model2, glm::radians(-angle * 10), glm::vec3(0.0f, 0.0f, 1.0f));
 
         renderer->updateModel(0, model1);

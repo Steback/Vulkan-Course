@@ -19,7 +19,8 @@ class Mesh {
     public:
         Mesh();
         Mesh(VkPhysicalDevice physicalDevice, VkDevice device, const std::vector<Vertex>& vertices,
-             VkQueue transferQueue, VkCommandPool transferCommandPool, const std::vector<uint32_t>& indices);
+             VkQueue transferQueue, VkCommandPool transferCommandPool, const std::vector<uint32_t>& indices,
+             int newTextureID);
         ~Mesh();
         [[nodiscard]] int getVertexCount() const;
         VkBuffer getVertexBuffer();
@@ -28,6 +29,8 @@ class Mesh {
         VkBuffer getIndexBuffer();
         [[nodiscard]] const Model &getUboModel() const;
         void setUboModel(const Model &uboModel);
+        [[nodiscard]] int getTextureId() const;
+        void setTextureId(int textureId);
 
     private:
         void createVertexBuffer(const std::vector<Vertex>& vertices, VkQueue transferQueue,
@@ -45,6 +48,7 @@ class Mesh {
         int indexCount_{};
         VkBuffer indexBuffer_{};
         VkDeviceMemory indexBufferMemory_{};
+        int textureID{};
 };
 
 

@@ -55,6 +55,7 @@ class VulkanRenderer {
         void createUniformBuffers();
         void createDescriptorPool();
         void createDescriptorSets();
+        void createTextureSampler();
 
         void updateUniformBuffers(uint32_t imageIndex);
 
@@ -90,7 +91,9 @@ class VulkanRenderer {
         VkImage createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
                             VkImageUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags,
                             VkDeviceMemory* imageMemory);
+        int createTextureImage(const std::string& fileName);
         int createTexture(const std::string& fileName);
+        int createTextureDescriptor(VkImageView textureImage);
 
         // -- Loader Functions
         stbi_uc* loadTextureFile(const std::string& fileName, int* width, int* height, VkDeviceSize* imageSize);
@@ -121,6 +124,7 @@ class VulkanRenderer {
         VkImage depthBufferImage{};
         VkDeviceMemory depthBufferImageMemory{};
         VkImageView depthBufferImageView{};
+        VkSampler textureSampler{};
 
         // - Descriptors
         VkDescriptorSetLayout descriptorSetLayout{};
@@ -134,10 +138,14 @@ class VulkanRenderer {
 //        size_t modelUniformAlignment{};
 //        UboModel* modelTransferSpace{};
         VkPushConstantRange pushConstantRange{};
+        VkDescriptorPool samplerDescriptorPool{};
+        VkDescriptorSetLayout samplerSetLayout{};
+        std::vector<VkDescriptorSet> samplerDescriptorSets;
 
         // - Assets
         std::vector<VkImage> textureImages;
         std::vector<VkDeviceMemory> textureImageMemory;
+        std::vector<VkImageView> textureImageViews;
 
         // - Pipeline
         VkPipeline graphicsPipeline_{};

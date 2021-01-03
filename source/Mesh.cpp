@@ -5,8 +5,10 @@
 Mesh::Mesh() = default;
 
 Mesh::Mesh(VkPhysicalDevice physicalDevice, VkDevice device, const std::vector<Vertex> &vertices,
-           VkQueue transferQueue, VkCommandPool transferCommandPool, const std::vector<uint32_t>& indices)
-        : vertexCount_(vertices.size()), physicalDevice_(physicalDevice), device_(device), indexCount_(indices.size()) {
+           VkQueue transferQueue, VkCommandPool transferCommandPool, const std::vector<uint32_t>& indices,
+           int newTextureID)
+        : vertexCount_(vertices.size()), physicalDevice_(physicalDevice), device_(device), indexCount_(indices.size()),
+        textureID(newTextureID) {
     createVertexBuffer(vertices, transferQueue, transferCommandPool);
     createIndexBuffer(indices, transferQueue, transferCommandPool);
 
@@ -44,6 +46,14 @@ const Model &Mesh::getUboModel() const {
 
 void Mesh::setUboModel(const Model &uboModel) {
     model_ = uboModel;
+}
+
+int Mesh::getTextureId() const {
+    return textureID;
+}
+
+void Mesh::setTextureId(int textureId) {
+    textureID = textureId;
 }
 
 void Mesh::createVertexBuffer(const std::vector<Vertex> &vertices, VkQueue transferQueue,

@@ -17,8 +17,9 @@ const std::vector<const char *> deviceExtensions = {
 };
 
 struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 col;
+    glm::vec3 pos; // Vertex Position (x, y, z)
+    glm::vec3 col; // Vertex Colour (r, g, b)
+    glm::vec2 tex; // Texture Coords (u, v)
 };
 
 // Indices (locations) of Queue Families (if they exists at all)
