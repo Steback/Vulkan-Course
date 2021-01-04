@@ -7,11 +7,14 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "vulkan/vulkan.hpp"
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
 
 #include "VulkanRenderer.hpp"
 #include "Utilities.hpp"
 #include "ValidationLayers.hpp"
-
+#include "MeshModel.hpp"
 
 VulkanRenderer::VulkanRenderer(std::unique_ptr<Window> &window) : window_(window) {  }
 
@@ -43,38 +46,13 @@ int VulkanRenderer::init() {
                                                         static_cast<float>(swapChainExtent_.width) / static_cast<float>(swapChainExtent_.height),
                                                         0.1f, 100.0f);
 
-        uboViewProjection.view = glm::lookAt(glm::vec3(2.0f, 0.0f, 2.0f), glm::vec3(0.0f, 0.0f, -2.0f),
+        uboViewProjection.view = glm::lookAt(glm::vec3(10.0f, 0.0f, 20.0f), glm::vec3(0.0f, 0.0f, -2.0f),
                                              glm::vec3(0.0f, 1.0f, 0.0f));
 
         uboViewProjection.projection[1][1] *= -1;
 
-        // Vertex Data
-        std::vector<Vertex> meshVertices{
-                { { -0.4f, 0.4f, 0.0f },{ 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-                { { -0.4f, -0.4f, 0.0f },{ 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-                { { 0.4f, -0.4f, 0.0f },{ 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-                { { 0.4f, 0.4f, 0.0f },{ 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } },
-        };
-
-        std::vector<Vertex> meshVertices2 = {
-                { { -0.25f, 0.6f, 0.0f },{ 0.0f, 0.0f, 1.0f }, { 1.0f, 1.0f } },
-                { { -0.25f, -0.6f, 0.0f },{ 0.0f, 0.0f, 1.0f }, { 1.0f, 0.0f } },
-                { { 0.25f, -0.6f, 0.0f },{ 0.0f, 0.0f, 1.0f }, { 0.0f, 0.0f } },
-                { { 0.25f, 0.6f, 0.0f },{ 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
-        };
-
-        // Index Data
-        std::vector<uint32_t> meshIndices{
-                0, 1, 2,
-                2, 3, 0
-        };
-
-        meshList.emplace_back(Mesh(device_.physicalDevice, device_.logicalDevice, meshVertices,
-                                   graphicsQueues_, graphicsCommandPool, meshIndices,
-                                   createTexture("panda.jpg")));
-        meshList.emplace_back(Mesh(device_.physicalDevice, device_.logicalDevice, meshVertices2,
-                                   graphicsQueues_, graphicsCommandPool, meshIndices,
-                                   createTexture("giraffe.jpg")));
+        // Create our default "no texture" texture
+        createTexture("plain.png");
     } catch (const std::runtime_error& error) {
         spdlog::error("[Vulkan-Renderer] {}", error.what());
 
@@ -85,38 +63,38 @@ int VulkanRenderer::init() {
 }
 
 void VulkanRenderer::draw() {
-     // -- GET NEXT IMAGE --
-    // Wait for given fence to signal(open) from last draw before continuing
+    // -- GET NEXT IMAGE --
+    // Wait for given fence to signal (open) from last draw before continuing
     vkWaitForFences(device_.logicalDevice, 1, &drawFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 
-    // Manually reset(close) fences
+    // Manually reset (close) fences
     vkResetFences(device_.logicalDevice, 1, &drawFences[currentFrame]);
 
-    // Get index of next image to be draw to, and signal semaphore when ready to be draw to
+    // Get index of next image to be drawn to, and signal semaphore when ready to be drawn to
     uint32_t imageIndex;
 
     vkAcquireNextImageKHR(device_.logicalDevice, swapChain_, std::numeric_limits<uint64_t>::max(),
-                           imageAvailable[currentFrame], VK_NULL_HANDLE, &imageIndex);
+                          imageAvailable[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     recordCommands(imageIndex);
     updateUniformBuffers(imageIndex);
 
     // -- SUBMIT COMMAND BUFFER TO RENDER --
     // Queue submission information
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.waitSemaphoreCount = 1;										// Number of semaphores to wait on
+    submitInfo.pWaitSemaphores = &imageAvailable[currentFrame];				// List of semaphores to wait on
+
     VkPipelineStageFlags waitStages[] = {
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
     };
 
-    VkSubmitInfo submitInfo{
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = 1, // Number of semaphores to wait on
-        .pWaitSemaphores = &imageAvailable[currentFrame], // List of semaphores to wait on
-        .pWaitDstStageMask = waitStages, // Stages to check semaphores at
-        .commandBufferCount = 1,
-        .pCommandBuffers = &commandBuffers_[imageIndex],
-        .signalSemaphoreCount = 1, // Number of semaphores to signal
-        .pSignalSemaphores = &renderFinished[currentFrame], // Semaphores to signal when command buffer finishes
-    };
+    submitInfo.pWaitDstStageMask = waitStages;						// Stages to check semaphores at
+    submitInfo.commandBufferCount = 1;								// Number of command buffers to submit
+    submitInfo.pCommandBuffers = &commandBuffers_[imageIndex];		// Command buffer to submit
+    submitInfo.signalSemaphoreCount = 1;							// Number of semaphores to signal
+    submitInfo.pSignalSemaphores = &renderFinished[currentFrame];	// Semaphores to signal when command buffer finishes
 
     // Submit command buffer to queue
     VkResult result = vkQueueSubmit(graphicsQueues_, 1, &submitInfo, drawFences[currentFrame]);
@@ -125,24 +103,23 @@ void VulkanRenderer::draw() {
         throw std::runtime_error("Failed to submit Command Buffer to Queue");
     }
 
-    // -- PRESENT RENDERER IMAGE TO SCREEN --
-    VkPresentInfoKHR presentInfo{
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &renderFinished[currentFrame],
-        .swapchainCount = 1,
-        .pSwapchains = &swapChain_,
-        .pImageIndices = &imageIndex
-    };
+    // -- PRESENT RENDERED IMAGE TO SCREEN --
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;										// Number of semaphores to wait on
+    presentInfo.pWaitSemaphores = &renderFinished[currentFrame];			// Semaphores to wait on
+    presentInfo.swapchainCount = 1;											// Number of swapchains to present to
+    presentInfo.pSwapchains = &swapChain_;									// Swapchains to present images to
+    presentInfo.pImageIndices = &imageIndex;								// Index of images in swapchains to present
 
-    // Present Image
+    // Present image
     result = vkQueuePresentKHR(presentationQueue_, &presentInfo);
 
     if (result != VK_SUCCESS) {
-        throw std::runtime_error("Failed to present Image");
+        throw std::runtime_error("Failed to present Image!");
     }
 
-    // Get next frame (use % MAX_FRAME_DRAWS to keep value below MAX_FRAME_DRAWS)
+    // Get next frame (use % swapChainImages.size() to keep value below swapChainImages.size())
     currentFrame = (currentFrame + 1) % MAX_FRAME_DRAWS;
 }
 
@@ -153,6 +130,10 @@ void VulkanRenderer::clean() {
     vkDeviceWaitIdle(device_.logicalDevice);
 
 //    std::free(modelTransferSpace);
+
+    for (auto & model : modelList) {
+        model.clean();
+    }
 
     vkDestroyDescriptorPool(device_.logicalDevice, samplerDescriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(device_.logicalDevice, samplerSetLayout, nullptr);
@@ -177,10 +158,6 @@ void VulkanRenderer::clean() {
         vkFreeMemory(device_.logicalDevice, vpUniformBufferMemory[i], nullptr);
 //        vkDestroyBuffer(device_.logicalDevice, modelDUniformBuffer[i], nullptr);
 //        vkFreeMemory(device_.logicalDevice, modelDUniformBufferMemory[i], nullptr);
-    }
-
-    for (auto & mesh : meshList) {
-        mesh.clean();
     }
 
     for (size_t i = 0; i < MAX_FRAME_DRAWS; ++i) {
@@ -211,9 +188,9 @@ void VulkanRenderer::clean() {
 }
 
 void VulkanRenderer::updateModel(int modelID, glm::mat4 newModel) {
-    if (modelID >= meshList.size()) return;
+    if (modelID >= modelList.size()) return;
 
-    meshList[modelID].setUboModel({newModel});
+    modelList[modelID].setModel({newModel});
 }
 
 void VulkanRenderer::createInstance() {
@@ -1122,11 +1099,11 @@ void VulkanRenderer::updateUniformBuffers(uint32_t imageIndex) {
 
     // Copy Model data
     /*for (size_t i = 0; i < meshList.size(); ++i) {
-        auto* model = (UboModel*)((uint64_t)modelTransferSpace + (i * modelUniformAlignment));
-        *model = meshList[i].getUboModel();
+        auto* model_ = (UboModel*)((uint64_t)modelTransferSpace + (i * modelUniformAlignment));
+        *model_ = meshList[i].getUboModel();
     }
 
-    // Map the list of model data
+    // Map the list of model_ data
     vkMapMemory(device_.logicalDevice, modelDUniformBufferMemory[imageIndex], 0,
                 modelUniformAlignment * meshList.size(), 0, &data);
     memcpy(data, modelTransferSpace, modelUniformAlignment * meshList.size());
@@ -1135,21 +1112,21 @@ void VulkanRenderer::updateUniformBuffers(uint32_t imageIndex) {
 
 void VulkanRenderer::recordCommands(uint32_t currentImage) {
     // Information about how to begin each command buffer
-    VkCommandBufferBeginInfo bufferBeginInfo{};
+    VkCommandBufferBeginInfo bufferBeginInfo = {};
     bufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
     // Information about how to begin a render pass (only needed for graphical applications)
-    VkRenderPassBeginInfo renderPassBeginInfo{};
+    VkRenderPassBeginInfo renderPassBeginInfo = {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass = renderPass_;							// Render Pass to begin
     renderPassBeginInfo.renderArea.offset = { 0, 0 };						// Start point of render pass in pixels
     renderPassBeginInfo.renderArea.extent = swapChainExtent_;				// Size of region to run render pass on (starting at offset)
 
     std::array<VkClearValue, 2> clearValues = {};
-    clearValues[0].color = {0.6f, 0.65f, 0.4, 1.0f};
+    clearValues[0].color = { 0.6f, 0.65f, 0.4f, 1.0f };
     clearValues[1].depthStencil.depth = 1.0f;
 
-    renderPassBeginInfo.pClearValues = clearValues.data();							// List of clear values
+    renderPassBeginInfo.pClearValues = clearValues.data();					// List of clear values
     renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 
     renderPassBeginInfo.framebuffer = swapChainFramebuffers_[currentImage];
@@ -1167,44 +1144,41 @@ void VulkanRenderer::recordCommands(uint32_t currentImage) {
     // Bind Pipeline to be used in render pass
     vkCmdBindPipeline(commandBuffers_[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_);
 
-    for (size_t j = 0; j < meshList.size(); ++j) {
-        VkBuffer vertexBuffers[] = { meshList[j].getVertexBuffer() }; // Buffers to bind
-        VkDeviceSize offsets[] = { 0 };	 // Offsets into buffers being bound
-        vkCmdBindVertexBuffers(commandBuffers_[currentImage], 0, 1, vertexBuffers, offsets);	// Command to bind vertex buffer before drawing with them
+    for (size_t j = 0; j < modelList.size(); j++) {
+        MeshModel thisModel = modelList[j];
 
-        // Bind mesh index buffer, with 0 offset and using the uint32 type
-        vkCmdBindIndexBuffer(commandBuffers_[currentImage], meshList[j].getIndexBuffer(), 0,
-                             VK_INDEX_TYPE_UINT32);
-
-        // Dynamic Offset Amount
-//        uint32_t dynamicOffset = static_cast<uint32_tt>(modelUniformAlignment) * j;
-
-        // "Push" constants to given shader stage directly (no buffer)
         vkCmdPushConstants(
                 commandBuffers_[currentImage],
                 pipelineLayout,
-                VK_SHADER_STAGE_VERTEX_BIT, // Stage to push constants to
-                0, // Offset of push constants to update
-                sizeof(Model), // Size of data being pushed
-                &meshList[j].getUboModel().model); // Actual being pushed (cna be array)
+                VK_SHADER_STAGE_VERTEX_BIT,		// Stage to push constants to
+                0,								// Offset of push constants to update
+                sizeof(Model),					// Size of data being pushed
+                &thisModel.getModel());			// Actual data being pushed (can be array)
 
-        std::array<VkDescriptorSet, 2> descriptorSetGroup{
-            descriptorSets[currentImage],
-            samplerDescriptorSets[meshList[j].getTextureId()]
-        };
+        for (size_t k = 0; k < thisModel.getMeshCount(); k++) {
+            VkBuffer vertexBuffers[] = { thisModel.getMesh(k)->getVertexBuffer() };					// Buffers to bind
+            VkDeviceSize offsets[] = { 0 };												// Offsets into buffers being bound
+            vkCmdBindVertexBuffers(commandBuffers_[currentImage], 0, 1, vertexBuffers, offsets);	// Command to bind vertex buffer before drawing with them
 
-        // Bind Descriptor Sets
-        vkCmdBindDescriptorSets(commandBuffers_[currentImage],
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                pipelineLayout,
-                                0,
-                                static_cast<uint32_t>(descriptorSetGroup.size()),
-                                descriptorSetGroup.data(),
-                                0,
-                                nullptr);
+            // Bind mesh index buffer, with 0 offset and using the uint32 type
+            vkCmdBindIndexBuffer(commandBuffers_[currentImage], thisModel.getMesh(k)->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-        // Execute pipeline
-        vkCmdDrawIndexed(commandBuffers_[currentImage], meshList[j].getIndexCount(), 1, 0, 0, 0);
+            // Dynamic Offset Amount
+            // uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * j;
+
+            // "Push" constants to given shader stage directly (no buffer)
+
+
+            std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
+                                                                  samplerDescriptorSets[thisModel.getMesh(k)->getTextureId()] };
+
+            // Bind Descriptor Sets
+            vkCmdBindDescriptorSets(commandBuffers_[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+                                    0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0, nullptr);
+
+            // Execute pipeline
+            vkCmdDrawIndexed(commandBuffers_[currentImage], thisModel.getMesh(k)->getIndexCount(), 1, 0, 0, 0);
+        }
     }
 
     // End Render Pass
@@ -1214,7 +1188,7 @@ void VulkanRenderer::recordCommands(uint32_t currentImage) {
     result = vkEndCommandBuffer(commandBuffers_[currentImage]);
 
     if (result != VK_SUCCESS) {
-        throw std::runtime_error("Failed to stop recording a Command Buffer");
+        throw std::runtime_error("Failed to stop recording a Command Buffer!");
     }
 }
 
@@ -1252,7 +1226,7 @@ void VulkanRenderer::getPhysicalDevice() {
 }
 
 void VulkanRenderer::allocateDynamicBufferTransferSpace() {
-    // Calculate alignment of model data
+    // Calculate alignment of model_ data
 //    modelUniformAlignment = (sizeof(UboModel) + minUniformBufferOffset_ - 1)
 //                            & ~(minUniformBufferOffset_ - 1);
 
@@ -1685,6 +1659,44 @@ int VulkanRenderer::createTextureDescriptor(VkImageView textureImage) {
 
     // Return descriptor set location
     return static_cast<int>(samplerDescriptorSets.size()) - 1;
+}
+
+int VulkanRenderer::createMeshModel(const std::string &modelFile) {
+    // Import model "scene"
+    Assimp::Importer importer;
+    const aiScene *scene = importer.ReadFile(modelFile, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+
+    if (!scene) {
+        throw std::runtime_error("Failed to load model! (" + modelFile + ")");
+    }
+
+    // Get vector of all materials with 1:1 ID placement
+    std::vector<std::string> textureNames = MeshModel::loadMaterials(scene);
+
+    // Conversion from the materials list IDs to our Descriptor Array IDs
+    std::vector<int> matToTex(textureNames.size());
+
+    // Loop over textureNames and create textures for them
+    for (size_t i = 0; i < textureNames.size(); i++) {
+        // If material had no texture, set '0' to indicate no texture, texture 0 will be reserved for a default texture
+        if (textureNames[i].empty()) {
+            matToTex[i] = 0;
+        } else {
+            // Otherwise, create texture and set value to index of new texture
+            matToTex[i] = createTexture(textureNames[i]);
+        }
+    }
+
+    // Load in all our meshes
+    std::vector<Mesh> modelMeshes = MeshModel::LoadNode(device_.physicalDevice, device_.logicalDevice, graphicsQueues_,
+                                                        graphicsCommandPool,
+                                                        scene->mRootNode, scene, matToTex);
+
+    // Create mesh model and add to list
+    MeshModel meshModel = MeshModel(modelMeshes);
+    modelList.push_back(meshModel);
+
+    return modelList.size() - 1;
 }
 
 stbi_uc* VulkanRenderer::loadTextureFile(const std::string &fileName, int *width, int *height, VkDeviceSize *imageSize) {

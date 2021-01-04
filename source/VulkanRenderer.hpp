@@ -16,6 +16,7 @@
 
 class ValidationLayers;
 class Mesh;
+class MeshModel;
 
 struct QueueFamilyIndices;
 struct SwapChainDetails;
@@ -35,6 +36,7 @@ class VulkanRenderer {
         void clean();
         void draw();
         void updateModel(int modelID, glm::mat4 newModel);
+        int createMeshModel(const std::string& modelFile);
 
     private:
         // Vulkan function
@@ -105,7 +107,7 @@ class VulkanRenderer {
         std::unique_ptr<ValidationLayers> validationLayers;
 
         // Scene objects
-        std::vector<Mesh> meshList;
+        std::vector<MeshModel> modelList;
 
         // Scene Settings
         UboViewProjection uboViewProjection{};

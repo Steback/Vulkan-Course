@@ -30,13 +30,17 @@ add_subdirectory(thirdparty/spdlog)
 include_directories(thirdparty/stb)
 add_library(stb STATIC thirdparty/stb/stb_image.cpp thirdparty/stb/stb_image.h)
 
+# assimp
+add_subdirectory(thirdparty/assimp)
+
 add_executable(${PROJECT_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 target_link_libraries(${PROJECT_NAME}
         glfw
         glm
         ${VULKAN} ${VALIDATION_LAYERS}
         spdlog
-        stb)
+        stb
+        assimp)
 
 ### COMPILE SHADERS ###
 set(GLSL_VALIDATOR $ENV{VULKAN_SDK}/bin/glslangValidator)
