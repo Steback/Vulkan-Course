@@ -31,6 +31,7 @@ int VulkanRenderer::init() {
         createDescriptorSetLayout();
         createPushConstantRange();
         createGraphicsPipeline();
+        createColourBufferImage();
         createDepthBufferImage();
         createFramebuffers();
         createCommandPool();
@@ -40,6 +41,7 @@ int VulkanRenderer::init() {
         createUniformBuffers();
         createDescriptorPool();
         createDescriptorSets();
+        createInputDescriptorSets();
         createSynchronisation();
 
         uboViewProjection.projection = glm::perspective(glm::radians(45.0f),
@@ -135,6 +137,9 @@ void VulkanRenderer::clean() {
         model.clean();
     }
 
+    vkDestroyDescriptorPool(device_.logicalDevice, inputDescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(device_.logicalDevice, inputSetLayout, nullptr);
+
     vkDestroyDescriptorPool(device_.logicalDevice, samplerDescriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(device_.logicalDevice, samplerSetLayout, nullptr);
 
@@ -146,9 +151,17 @@ void VulkanRenderer::clean() {
         vkFreeMemory(device_.logicalDevice, textureImageMemory[i], nullptr);
     }
 
-    vkDestroyImageView(device_.logicalDevice, depthBufferImageView, nullptr);
-    vkDestroyImage(device_.logicalDevice, depthBufferImage, nullptr);
-    vkFreeMemory(device_.logicalDevice, depthBufferImageMemory, nullptr);
+    for (size_t i = 0; i < colourBufferImages.size(); ++i) {
+        vkDestroyImageView(device_.logicalDevice, colourBufferImageView[i], nullptr);
+        vkDestroyImage(device_.logicalDevice, colourBufferImages[i], nullptr);
+        vkFreeMemory(device_.logicalDevice, colourBufferImageMemory[i], nullptr);
+    }
+
+    for (size_t i = 0; i < depthBufferImages.size(); ++i) {
+        vkDestroyImageView(device_.logicalDevice, depthBufferImageView[i], nullptr);
+        vkDestroyImage(device_.logicalDevice, depthBufferImages[i], nullptr);
+        vkFreeMemory(device_.logicalDevice, depthBufferImageMemory[i], nullptr);
+    }
 
     vkDestroyDescriptorPool(device_.logicalDevice, descriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(device_.logicalDevice, descriptorSetLayout, nullptr);
@@ -171,6 +184,9 @@ void VulkanRenderer::clean() {
     for (auto& framebuffer : swapChainFramebuffers_) {
         vkDestroyFramebuffer(device_.logicalDevice, framebuffer, nullptr);
     }
+
+    vkDestroyPipeline(device_.logicalDevice, secondPipeline, nullptr);
+    vkDestroyPipelineLayout(device_.logicalDevice, secondPipeLineLayout, nullptr);
 
     vkDestroyPipeline(device_.logicalDevice, graphicsPipeline_, nullptr);
     vkDestroyPipelineLayout(device_.logicalDevice, pipelineLayout, nullptr);
@@ -422,8 +438,8 @@ void VulkanRenderer::createSwapChain() {
 
 void VulkanRenderer::createGraphicsPipeline() {
     // Read in SPIR-V code of shaders
-    auto vertexShaderCode = readFile("../shaders/vert.spv");
-    auto fragmentShaderCode = readFile("../shaders/frag.spv");
+    auto vertexShaderCode = readFile("../shaders/shader.vert.spv");
+    auto fragmentShaderCode = readFile("../shaders/shader.frag.spv");
 
     // Create shaders module
     VkShaderModule vertShaderModule = createShaderModule(vertexShaderCode);
@@ -653,26 +669,78 @@ void VulkanRenderer::createGraphicsPipeline() {
     // Destroy Shader Modules, no longer needed after Pipeline created
     vkDestroyShaderModule(device_.logicalDevice, vertShaderModule, nullptr);
     vkDestroyShaderModule(device_.logicalDevice, fragShaderModule, nullptr);
+
+    // CREATE SECOND PASS PIPELINE
+    // Second pass shaders
+    auto secondVertexShaderCode = readFile("../shaders/second.vert.spv");
+    auto secondFragmentShaderCode = readFile("../shaders/second.frag.spv");
+
+    // Build shaders
+    VkShaderModule secondVertexShaderModule = createShaderModule(secondVertexShaderCode);
+    VkShaderModule secondFragmentShaderModule = createShaderModule(secondFragmentShaderCode);
+
+    // Set new shaders
+    vertexShaderCreateInfo.module = secondVertexShaderModule;
+    fragmentShaderCreateInfo.module = secondFragmentShaderModule;
+
+    VkPipelineShaderStageCreateInfo secondShaderStages[] = { vertexShaderCreateInfo, fragmentShaderCreateInfo };
+
+    // No vertex data for second pass
+    vertexInputStateCreateInfo.vertexBindingDescriptionCount = 0;
+    vertexInputStateCreateInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputStateCreateInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputStateCreateInfo.pVertexAttributeDescriptions = nullptr;
+
+    // Don't want to write to depth buffer
+    depthStencilStateCreateInfo.depthWriteEnable = VK_FALSE;
+
+    // Create new pipleine layout
+    VkPipelineLayoutCreateInfo secondPipelineLayoutCreateInfo{};
+    secondPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    secondPipelineLayoutCreateInfo.setLayoutCount = 1;
+    secondPipelineLayoutCreateInfo.pSetLayouts = &inputSetLayout;
+    secondPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+    secondPipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
+
+    result = vkCreatePipelineLayout(device_.logicalDevice, &secondPipelineLayoutCreateInfo, nullptr, &secondPipeLineLayout);
+
+    if (result != VK_SUCCESS) throw std::runtime_error("Failed to created a Pipeline Layout");
+
+    graphicsPipelineCreateInfo.pStages = secondShaderStages;	// Update second shader stage list
+    graphicsPipelineCreateInfo.layout = secondPipeLineLayout;	// Change pipeline layout for input attachment descriptor sets
+    graphicsPipelineCreateInfo.subpass = 1;						// Use second subpass
+
+    // Create second pipeline
+    result = vkCreateGraphicsPipelines(device_.logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo, nullptr, &secondPipeline);
+    if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create a Graphics Pipeline!");
+    }
+
+    // Destroy second shader modules
+    vkDestroyShaderModule(device_.logicalDevice, secondFragmentShaderModule, nullptr);
+    vkDestroyShaderModule(device_.logicalDevice, secondVertexShaderModule, nullptr);
 }
 
 void VulkanRenderer::createRenderPass() {
     // ATTACHMENTS
-    // Colour attachment of render pass
-    VkAttachmentDescription colourAttachment{
-        .format = swapChainImageFormat_, // Format to use for attachment
-        .samples = VK_SAMPLE_COUNT_1_BIT, // Number of samples to write for multisampling
-        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, // Describes what to do with attachment before rendering
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // Describes what to do with attachment after rendering
-        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, // Describes what to do with stencil before rendering
-        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE, // Describes what to do with stencil before rendering
-    };
+    // SUBPASS 1 ATTACHMENTS + REFERENCES (INPUT ATTACHMENTS)
 
-    // Framebuffer data will be stored as an image, but images can be given different data layouts
-    // to give optimal use for certain operations
-    colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Image data layout before render pass starts
-    colourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // Image data layout after render pass(to change to)
+    // Colour Attachment (Input)
+    VkAttachmentDescription colourAttachment{};
+    colourAttachment.format = chooseSupportedFormat(
+            { VK_FORMAT_R8G8B8A8_UNORM },
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    colourAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colourAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colourAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colourAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colourAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colourAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    // Depth Attachment of render pass
+    // Depth Attachment (Input)
     VkAttachmentDescription depthAttachment{};
     depthAttachment.format = chooseSupportedFormat(
             { VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
@@ -686,28 +754,66 @@ void VulkanRenderer::createRenderPass() {
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    // REFERENCES
+    // Color Attachment (Input) Reference
+    VkAttachmentReference colourAttachmentReference{};
+    colourAttachmentReference.attachment = 1;
+    colourAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    // Depth Attachment (Input) Reference
+    VkAttachmentReference depthAttachmentReference{};
+    depthAttachmentReference.attachment = 2;
+    depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    // Array of subpasses
+    std::array<VkSubpassDescription, 2> subpasses{};
+
+    // Set up Subpass 1
+    subpasses[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // Pipeline type subpass is to be bound to
+    subpasses[0].colorAttachmentCount = 1;
+    subpasses[0].pColorAttachments = &colourAttachmentReference;
+    subpasses[0].pDepthStencilAttachment = &depthAttachmentReference;
+
+    // SUBPASS 2 ATTACHMENTS + REFERENCES
+
+    // Swapchain Colour attachment
+    VkAttachmentDescription swapchainColourAttachment{
+        .format = swapChainImageFormat_, // Format to use for attachment
+        .samples = VK_SAMPLE_COUNT_1_BIT, // Number of samples to write for multisampling
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, // Describes what to do with attachment before rendering
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // Describes what to do with attachment after rendering
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, // Describes what to do with stencil before rendering
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE, // Describes what to do with stencil before rendering
+    };
+
+    // Framebuffer data will be stored as an image, but images can be given different data layouts
+    // to give optimal use for certain operations
+    swapchainColourAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // Image data layout before render pass starts
+    swapchainColourAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // Image data layout after render pass(to change to)
+
     // Attachment reference uses an attachment index that refers to index in an attachment list passed to renderPassCreateInfo
-    VkAttachmentReference attachmentReference{
+    VkAttachmentReference swapchainColourAttachmentReference{
         .attachment = 0,
         .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
-    // Depth Attachment Reference
-    VkAttachmentReference depthAttachmentReference{};
-    depthAttachmentReference.attachment = 1;
-    depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    // References to Attachments that subpass will take input from
+    std::array<VkAttachmentReference, 2> inputReferences{};
+    inputReferences[0].attachment = 1;
+    inputReferences[0].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    inputReferences[1].attachment = 2;
+    inputReferences[1].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    // Information about a particular subpass the Render Pass is using
-    VkSubpassDescription subpass{
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS, // Pipeline type subpass is to be bound to
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &attachmentReference,
-        .pDepthStencilAttachment = &depthAttachmentReference
-    };
+    // Set up Subpass 2
+    subpasses[1].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // Pipeline type subpass is to be bound to
+    subpasses[1].colorAttachmentCount = 1;
+    subpasses[1].pColorAttachments = &swapchainColourAttachmentReference;
+    subpasses[1].inputAttachmentCount = static_cast<uint32_t>(inputReferences.size());
+    subpasses[1].pInputAttachments = inputReferences.data();
+
+    // SUBPASS DEPENDENCIES
 
     // Need to determine when layout transitions occur using dependencies
-    std::array<VkSubpassDependency, 2> subpassDependencies{};
+    std::array<VkSubpassDependency, 3> subpassDependencies{};
 
     // Conversion from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     subpassDependencies[0] = {
@@ -720,8 +826,19 @@ void VulkanRenderer::createRenderPass() {
             .dependencyFlags = 0
     };
 
-    // Conversion from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_COLOR_SRC_KHR
+    // Subpass 1 layout (colour/depth) to Subpass 2 layout (shader read)
     subpassDependencies[1] = {
+            .srcSubpass = 0,
+            .dstSubpass = 1,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+            .dependencyFlags = 0
+    };
+
+    // Conversion from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_COLOR_SRC_KHR
+    subpassDependencies[2] = {
             .srcSubpass = 0,
             .dstSubpass = VK_SUBPASS_EXTERNAL,
             .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -731,16 +848,16 @@ void VulkanRenderer::createRenderPass() {
             .dependencyFlags = 0
     };
 
-    std::array<VkAttachmentDescription, 2> renderPassAttachments{
-        colourAttachment, depthAttachment
+    std::array<VkAttachmentDescription, 3> renderPassAttachments{
+        swapchainColourAttachment, colourAttachment, depthAttachment
     };
 
     VkRenderPassCreateInfo renderPassCreateInfo{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
         .attachmentCount = static_cast<uint32_t>(renderPassAttachments.size()),
         .pAttachments = renderPassAttachments.data(),
-        .subpassCount = 1,
-        .pSubpasses = &subpass,
+        .subpassCount = static_cast<uint32_t>(subpasses.size()),
+        .pSubpasses = subpasses.data(),
         .dependencyCount = static_cast<uint32_t>(subpassDependencies.size()),
         .pDependencies = subpassDependencies.data()
     };
@@ -807,6 +924,36 @@ void VulkanRenderer::createDescriptorSetLayout() {
     result = vkCreateDescriptorSetLayout(device_.logicalDevice, &textureLayoutCreateInfo, nullptr, &samplerSetLayout);
 
     if (result != VK_SUCCESS) throw std::runtime_error("Failed to create a Descriptor Set Layout");
+
+    // CREATE INPUT ATTACHMENT IMAGE DESCRIPTOR SET LAYOUT
+    // Colour input binding
+    VkDescriptorSetLayoutBinding colourInputLayoutBinding{};
+    colourInputLayoutBinding.binding = 0;
+    colourInputLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    colourInputLayoutBinding.descriptorCount = 1;
+    colourInputLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorSetLayoutBinding depthInputLayoutBinding{};
+    depthInputLayoutBinding.binding = 1;
+    depthInputLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    depthInputLayoutBinding.descriptorCount = 1;
+    depthInputLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    // Array of input attachments bindings
+    std::vector<VkDescriptorSetLayoutBinding> inputBindings = {
+            colourInputLayoutBinding,
+            depthInputLayoutBinding
+    };
+
+    // Create a descriptor set layout for input attachments
+    VkDescriptorSetLayoutCreateInfo inputLayoutCreateInfo{};
+    inputLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    inputLayoutCreateInfo.bindingCount = static_cast<uint32_t>(inputBindings.size());
+    inputLayoutCreateInfo.pBindings = inputBindings.data();
+
+    result = vkCreateDescriptorSetLayout(device_.logicalDevice, &inputLayoutCreateInfo, nullptr, &inputSetLayout);
+
+    if (result != VK_SUCCESS) throw std::runtime_error("Failed to create a Descriptor Set Layout");
 }
 
 void VulkanRenderer::createPushConstantRange() {
@@ -816,23 +963,57 @@ void VulkanRenderer::createPushConstantRange() {
     pushConstantRange.size = sizeof(Model); // size of data being pass
 }
 
+void VulkanRenderer::createColourBufferImage() {
+    // Resize supported format for colour attachment
+    colourBufferImages.resize(swapChainImages_.size());
+    colourBufferImageView.resize(swapChainImages_.size());
+    colourBufferImageMemory.resize(swapChainImages_.size());
+
+    // Get supported format for colour attachment
+    VkFormat colourFormat = chooseSupportedFormat(
+            { VK_FORMAT_R8G8B8A8_UNORM },
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+            );
+
+    for (size_t i = 0; i < swapChainImages_.size(); ++i) {
+        // Create Colour Buffer Image
+        colourBufferImages[i] = createImage(swapChainExtent_.width, swapChainExtent_.height,
+                                            colourFormat,
+                                            VK_IMAGE_TILING_OPTIMAL,
+                                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                            &colourBufferImageMemory[i]);
+
+        // Create Colour Image View
+        colourBufferImageView[i] = createImageView(colourBufferImages[i], colourFormat, VK_IMAGE_ASPECT_COLOR_BIT);
+    }
+}
+
 void VulkanRenderer::createDepthBufferImage() {
+    depthBufferImages.resize(swapChainImages_.size());
+    depthBufferImageView.resize(swapChainImages_.size());
+    depthBufferImageMemory.resize(swapChainImages_.size());
+
     // Get supported format for depth buffer
     VkFormat depthForamt = chooseSupportedFormat(
             { VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT },
             VK_IMAGE_TILING_OPTIMAL,
             VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT );
 
-    // Create depth buffer image
-    depthBufferImage = createImage(swapChainExtent_.width, swapChainExtent_.height,
-                                   depthForamt,
-                                   VK_IMAGE_TILING_OPTIMAL,
-                                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                   &depthBufferImageMemory);
 
-    // Create Depth Buffer Image View
-    depthBufferImageView = createImageView(depthBufferImage, depthForamt, VK_IMAGE_ASPECT_DEPTH_BIT);
+    for (size_t i = 0; i < swapChainImages_.size(); ++i) {
+        // Create depth buffer image
+        depthBufferImages[i] = createImage(swapChainExtent_.width, swapChainExtent_.height,
+                                       depthForamt,
+                                       VK_IMAGE_TILING_OPTIMAL,
+                                       VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                       &depthBufferImageMemory[i]);
+
+        // Create Depth Buffer Image View
+        depthBufferImageView[i] = createImageView(depthBufferImages[i], depthForamt, VK_IMAGE_ASPECT_DEPTH_BIT);
+    }
 }
 
 void VulkanRenderer::createFramebuffers() {
@@ -841,9 +1022,10 @@ void VulkanRenderer::createFramebuffers() {
 
     // Create a framebuffer for each swap chain image
     for (size_t i = 0; i < swapChainFramebuffers_.size(); i++) {
-        std::array<VkImageView, 2> attachments = {
+        std::array<VkImageView, 3> attachments = {
                 swapChainImages_[i].imageView,
-                depthBufferImageView
+                colourBufferImageView[i],
+                depthBufferImageView[i]
         };
 
         VkFramebufferCreateInfo framebufferCreateInfo{
@@ -1000,6 +1182,32 @@ void VulkanRenderer::createDescriptorPool() {
     result = vkCreateDescriptorPool(device_.logicalDevice, &samplerPoolCreateInfo, nullptr, &samplerDescriptorPool);
 
     if (result != VK_SUCCESS) throw std::runtime_error("Failed to create a Descriptor Pool");
+
+    // CREATE INPUT ATTACHMENT DESCRIPTOR POOL
+    // Colour Attachment Pool Size
+    VkDescriptorPoolSize colourInputPoolSize = {};
+    colourInputPoolSize.type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    colourInputPoolSize.descriptorCount = static_cast<uint32_t>(colourBufferImageView.size());
+
+    // Depth Attachment Pool Size
+    VkDescriptorPoolSize depthInputPoolSize = {};
+    depthInputPoolSize.type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    depthInputPoolSize.descriptorCount = static_cast<uint32_t>(depthBufferImageView.size());
+
+    std::vector<VkDescriptorPoolSize> inputPoolSizes = { colourInputPoolSize, depthInputPoolSize };
+
+    // Create input attachment pool
+    VkDescriptorPoolCreateInfo inputPoolCreateInfo = {};
+    inputPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    inputPoolCreateInfo.maxSets = swapChainImages_.size();
+    inputPoolCreateInfo.poolSizeCount = static_cast<uint32_t>(inputPoolSizes.size());
+    inputPoolCreateInfo.pPoolSizes = inputPoolSizes.data();
+
+    result = vkCreateDescriptorPool(device_.logicalDevice, &inputPoolCreateInfo, nullptr, &inputDescriptorPool);
+    if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create a Descriptor Pool!");
+    }
 }
 
 void VulkanRenderer::createDescriptorSets() {
@@ -1089,6 +1297,70 @@ void VulkanRenderer::createTextureSampler() {
     if (result != VK_SUCCESS) throw std::runtime_error("Failed to crate a Texture Sampler");
 }
 
+void VulkanRenderer::createInputDescriptorSets() {
+    // Resize array to hold descriptor set for each swap chain image
+    inputDescriptorSets.resize(swapChainImages_.size());
+
+    // Fill array of layouts ready for set creation
+    std::vector<VkDescriptorSetLayout> setLayouts(swapChainImages_.size(), inputSetLayout);
+
+    // Input Attachment Descriptor Set Allocation Info
+    VkDescriptorSetAllocateInfo setAllocInfo = {};
+    setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    setAllocInfo.descriptorPool = inputDescriptorPool;
+    setAllocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages_.size());
+    setAllocInfo.pSetLayouts = setLayouts.data();
+
+    // Allocate Descriptor Sets
+    VkResult result = vkAllocateDescriptorSets(device_.logicalDevice, &setAllocInfo, inputDescriptorSets.data());
+    if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to allocate Input Attachment Descriptor Sets!");
+    }
+
+    // Update each descriptor set with input attachment
+    for (size_t i = 0; i < swapChainImages_.size(); i++)
+    {
+        // Colour Attachment Descriptor
+        VkDescriptorImageInfo colourAttachmentDescriptor = {};
+        colourAttachmentDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        colourAttachmentDescriptor.imageView = colourBufferImageView[i];
+        colourAttachmentDescriptor.sampler = VK_NULL_HANDLE;
+
+        // Colour Attachment Descriptor Write
+        VkWriteDescriptorSet colourWrite = {};
+        colourWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        colourWrite.dstSet = inputDescriptorSets[i];
+        colourWrite.dstBinding = 0;
+        colourWrite.dstArrayElement = 0;
+        colourWrite.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        colourWrite.descriptorCount = 1;
+        colourWrite.pImageInfo = &colourAttachmentDescriptor;
+
+        // Depth Attachment Descriptor
+        VkDescriptorImageInfo depthAttachmentDescriptor = {};
+        depthAttachmentDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        depthAttachmentDescriptor.imageView = depthBufferImageView[i];
+        depthAttachmentDescriptor.sampler = VK_NULL_HANDLE;
+
+        // Depth Attachment Descriptor Write
+        VkWriteDescriptorSet depthWrite = {};
+        depthWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        depthWrite.dstSet = inputDescriptorSets[i];
+        depthWrite.dstBinding = 1;
+        depthWrite.dstArrayElement = 0;
+        depthWrite.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        depthWrite.descriptorCount = 1;
+        depthWrite.pImageInfo = &depthAttachmentDescriptor;
+
+        // List of input descriptor set writes
+        std::vector<VkWriteDescriptorSet> setWrites = { colourWrite, depthWrite };
+
+        // Update descriptor sets
+        vkUpdateDescriptorSets(device_.logicalDevice, static_cast<uint32_t>(setWrites.size()), setWrites.data(), 0, nullptr);
+    }
+}
+
 void VulkanRenderer::updateUniformBuffers(uint32_t imageIndex) {
     // Copy VP data
     void* data;
@@ -1122,9 +1394,10 @@ void VulkanRenderer::recordCommands(uint32_t currentImage) {
     renderPassBeginInfo.renderArea.offset = { 0, 0 };						// Start point of render pass in pixels
     renderPassBeginInfo.renderArea.extent = swapChainExtent_;				// Size of region to run render pass on (starting at offset)
 
-    std::array<VkClearValue, 2> clearValues = {};
-    clearValues[0].color = { 0.6f, 0.65f, 0.4f, 1.0f };
-    clearValues[1].depthStencil.depth = 1.0f;
+    std::array<VkClearValue, 3> clearValues = {};
+    clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clearValues[1].color = { 0.6f, 0.65f, 0.4f, 1.0f };
+    clearValues[2].depthStencil.depth = 1.0f;
 
     renderPassBeginInfo.pClearValues = clearValues.data();					// List of clear values
     renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -1141,45 +1414,54 @@ void VulkanRenderer::recordCommands(uint32_t currentImage) {
     // Begin Render Pass
     vkCmdBeginRenderPass(commandBuffers_[currentImage], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Bind Pipeline to be used in render pass
-    vkCmdBindPipeline(commandBuffers_[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_);
+        // Bind Pipeline to be used in render pass
+        vkCmdBindPipeline(commandBuffers_[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_);
 
-    for (size_t j = 0; j < modelList.size(); j++) {
-        MeshModel thisModel = modelList[j];
+        for (size_t j = 0; j < modelList.size(); j++) {
+            MeshModel thisModel = modelList[j];
 
-        vkCmdPushConstants(
-                commandBuffers_[currentImage],
-                pipelineLayout,
-                VK_SHADER_STAGE_VERTEX_BIT,		// Stage to push constants to
-                0,								// Offset of push constants to update
-                sizeof(Model),					// Size of data being pushed
-                &thisModel.getModel());			// Actual data being pushed (can be array)
+            vkCmdPushConstants(
+                    commandBuffers_[currentImage],
+                    pipelineLayout,
+                    VK_SHADER_STAGE_VERTEX_BIT,		// Stage to push constants to
+                    0,								// Offset of push constants to update
+                    sizeof(Model),					// Size of data being pushed
+                    &thisModel.getModel());			// Actual data being pushed (can be array)
 
-        for (size_t k = 0; k < thisModel.getMeshCount(); k++) {
-            VkBuffer vertexBuffers[] = { thisModel.getMesh(k)->getVertexBuffer() };					// Buffers to bind
-            VkDeviceSize offsets[] = { 0 };												// Offsets into buffers being bound
-            vkCmdBindVertexBuffers(commandBuffers_[currentImage], 0, 1, vertexBuffers, offsets);	// Command to bind vertex buffer before drawing with them
+            for (size_t k = 0; k < thisModel.getMeshCount(); k++) {
+                VkBuffer vertexBuffers[] = { thisModel.getMesh(k)->getVertexBuffer() };					// Buffers to bind
+                VkDeviceSize offsets[] = { 0 };												// Offsets into buffers being bound
+                vkCmdBindVertexBuffers(commandBuffers_[currentImage], 0, 1, vertexBuffers, offsets);	// Command to bind vertex buffer before drawing with them
 
-            // Bind mesh index buffer, with 0 offset and using the uint32 type
-            vkCmdBindIndexBuffer(commandBuffers_[currentImage], thisModel.getMesh(k)->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+                // Bind mesh index buffer, with 0 offset and using the uint32 type
+                vkCmdBindIndexBuffer(commandBuffers_[currentImage], thisModel.getMesh(k)->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-            // Dynamic Offset Amount
-            // uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * j;
+                // Dynamic Offset Amount
+                // uint32_t dynamicOffset = static_cast<uint32_t>(modelUniformAlignment) * j;
 
-            // "Push" constants to given shader stage directly (no buffer)
+                // "Push" constants to given shader stage directly (no buffer)
 
 
-            std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
-                                                                  samplerDescriptorSets[thisModel.getMesh(k)->getTextureId()] };
+                std::array<VkDescriptorSet, 2> descriptorSetGroup = { descriptorSets[currentImage],
+                                                                      samplerDescriptorSets[thisModel.getMesh(k)->getTextureId()] };
 
-            // Bind Descriptor Sets
-            vkCmdBindDescriptorSets(commandBuffers_[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
-                                    0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0, nullptr);
+                // Bind Descriptor Sets
+                vkCmdBindDescriptorSets(commandBuffers_[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+                                        0, static_cast<uint32_t>(descriptorSetGroup.size()), descriptorSetGroup.data(), 0, nullptr);
 
-            // Execute pipeline
-            vkCmdDrawIndexed(commandBuffers_[currentImage], thisModel.getMesh(k)->getIndexCount(), 1, 0, 0, 0);
+                // Execute pipeline
+                vkCmdDrawIndexed(commandBuffers_[currentImage], thisModel.getMesh(k)->getIndexCount(), 1, 0, 0, 0);
+            }
         }
-    }
+
+        // Start second subpass
+        vkCmdNextSubpass(commandBuffers_[currentImage], VK_SUBPASS_CONTENTS_INLINE);
+
+        vkCmdBindPipeline(commandBuffers_[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, secondPipeline);
+        vkCmdBindDescriptorSets(commandBuffers_[currentImage], VK_PIPELINE_BIND_POINT_GRAPHICS, secondPipeLineLayout,
+                                0, 1, &inputDescriptorSets[currentImage], 0, nullptr);
+
+        vkCmdDraw(commandBuffers_[currentImage], 3, 1, 0, 0);
 
     // End Render Pass
     vkCmdEndRenderPass(commandBuffers_[currentImage]);

@@ -47,6 +47,8 @@ set(GLSL_VALIDATOR $ENV{VULKAN_SDK}/bin/glslangValidator)
 file(GLOB_RECURSE shaders_source shaders/*.vert shaders/*.frag)
 
 foreach(shader ${shaders_source})
-    execute_process(COMMAND ${GLSL_VALIDATOR} -V ${shader}
+    get_filename_component(fileName ${shader} NAME_WE)
+    get_filename_component(fileExt ${shader} EXT)
+    execute_process(COMMAND ${GLSL_VALIDATOR} -o ${fileName}${fileExt}.spv -V  ${shader}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/shaders/)
 endforeach()

@@ -49,6 +49,7 @@ class VulkanRenderer {
         void createRenderPass();
         void createDescriptorSetLayout();
         void createPushConstantRange();
+        void createColourBufferImage();
         void createDepthBufferImage();
         void createFramebuffers();
         void createCommandPool();
@@ -58,6 +59,7 @@ class VulkanRenderer {
         void createDescriptorPool();
         void createDescriptorSets();
         void createTextureSampler();
+        void createInputDescriptorSets();
 
         void updateUniformBuffers(uint32_t imageIndex);
 
@@ -123,9 +125,12 @@ class VulkanRenderer {
         std::vector<SwapChainImage> swapChainImages_;
         std::vector<VkFramebuffer> swapChainFramebuffers_;
         std::vector<VkCommandBuffer> commandBuffers_;
-        VkImage depthBufferImage{};
-        VkDeviceMemory depthBufferImageMemory{};
-        VkImageView depthBufferImageView{};
+        std::vector<VkImage> depthBufferImages;
+        std::vector<VkDeviceMemory> depthBufferImageMemory;
+        std::vector<VkImageView> depthBufferImageView;
+        std::vector<VkImage> colourBufferImages;
+        std::vector<VkDeviceMemory> colourBufferImageMemory;
+        std::vector<VkImageView> colourBufferImageView;
         VkSampler textureSampler{};
 
         // - Descriptors
@@ -143,6 +148,9 @@ class VulkanRenderer {
         VkDescriptorPool samplerDescriptorPool{};
         VkDescriptorSetLayout samplerSetLayout{};
         std::vector<VkDescriptorSet> samplerDescriptorSets;
+        VkDescriptorSetLayout inputSetLayout{};
+        VkDescriptorPool inputDescriptorPool{};
+        std::vector<VkDescriptorSet> inputDescriptorSets{};
 
         // - Assets
         std::vector<VkImage> textureImages;
@@ -153,6 +161,8 @@ class VulkanRenderer {
         VkPipeline graphicsPipeline_{};
         VkPipelineLayout pipelineLayout{};
         VkRenderPass renderPass_{};
+        VkPipeline secondPipeline{};
+        VkPipelineLayout secondPipeLineLayout{};
 
         // Pools
         VkCommandPool graphicsCommandPool{};
